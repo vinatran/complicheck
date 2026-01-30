@@ -4,38 +4,34 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { getCurrentUser } from '@/lib/auth'
 import { supabase } from '@/lib/supabase'
+import { getFrameworkList } from '@/lib/frameworks'
 
-const frameworks = [
-  {
-    id: 'iso27001',
-    name: 'ISO 27001:2022',
-    description: 'International standard for information security management systems (ISMS)',
-    controls: 12,
-    popular: true,
-  },
-  {
-    id: 'nist',
-    name: 'NIST CSF',
-    description: 'Cybersecurity framework by the National Institute of Standards and Technology',
-    controls: 23,
-    popular: false,
-    comingSoon: true,
-  },
-  {
-    id: 'soc2',
-    name: 'SOC 2',
-    description: 'Service Organization Control 2 for trust services criteria',
-    controls: 17,
-    popular: false,
-    comingSoon: true,
-  },
-]
+const frameworkList = getFrameworkList()
+
+// Group frameworks by category
+const categories = {
+  security: { name: 'Security', icon: '🛡️' },
+  privacy: { name: 'Privacy', icon: '🔒' },
+  industry: { name: 'Industry', icon: '🏭' },
+  government: { name: 'Government', icon: '🏛️' },
+  ai: { name: 'AI', icon: '🤖' },
+}
 
 export default function NewAssessmentPage() {
   const router = useRouter()
   const [selectedFramework, setSelectedFramework] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [searchTerm, setSearchTerm] = useState('')
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
+
+  const filteredFrameworks = frameworkList.filter(f => {
+    const matchesSearch = f.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      f.shortName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      f.description.toLowerCase().includes(searchTerm.toLowerCase())
+    const matchesCategory = !selectedCategory || f.category === selectedCategory
+    return matchesSearch && matchesCategory
+  })
 
   async function handleStart() {
     if (!selectedFramework) {
@@ -53,7 +49,6 @@ export default function NewAssessmentPage() {
         return
       }
 
-      // Create new assessment
       const { data, error: dbError } = await supabase
         .from('assessments')
         .insert({
@@ -67,7 +62,6 @@ export default function NewAssessmentPage() {
 
       if (dbError) throw dbError
 
-      // Redirect to upload page
       router.push(`/assessment/${data.id}/upload`)
     } catch (err: any) {
       setError(err.message || 'Failed to create assessment')
@@ -75,10 +69,14 @@ export default function NewAssessmentPage() {
     }
   }
 
+  const getCategoryIcon = (category: string) => {
+    return categories[category as keyof typeof categories]?.icon || '📋'
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="container mx-auto px-4 py-12">
-        <div className="max-w-3xl mx-auto">
+        <div className="max-w-4xl mx-auto">
           <div className="mb-8">
             <a href="/dashboard" className="text-blue-600 hover:text-blue-700">
               ← Back to Dashboard
@@ -86,8 +84,8 @@ export default function NewAssessmentPage() {
           </div>
 
           <h1 className="text-3xl font-bold text-gray-900 mb-2">New Assessment</h1>
-          <p className="text-gray-600 mb-8">
-            Select a compliance framework to begin your assessment
+          <p className="text-gray-600 mb-6">
+            Choose from {frameworkList.length} compliance frameworks
           </p>
 
           {error && (
@@ -96,45 +94,79 @@ export default function NewAssessmentPage() {
             </div>
           )}
 
-          <div className="space-y-4 mb-8">
-            {frameworks.map((framework) => (
+          {/* Search and Filter */}
+          <div className="mb-6 flex flex-col sm:flex-row gap-4">
+            <div className="flex-1">
+              <input
+                type="text"
+                placeholder="Search frameworks..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              />
+            </div>
+            <div className="flex gap-2 flex-wrap">
+              <button
+                onClick={() => setSelectedCategory(null)}
+                className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  !selectedCategory
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                All
+              </button>
+              {Object.entries(categories).map(([key, { name, icon }]) => (
+                <button
+                  key={key}
+                  onClick={() => setSelectedCategory(key)}
+                  className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    selectedCategory === key
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  {icon} {name}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Framework Grid */}
+          <div className="grid gap-4 md:grid-cols-2 mb-8">
+            {filteredFrameworks.map((framework) => (
               <div
                 key={framework.id}
-                onClick={() => !framework.comingSoon && setSelectedFramework(framework.id)}
-                className={`p-6 bg-white rounded-lg border-2 transition-all ${
-                  framework.comingSoon
-                    ? 'opacity-50 cursor-not-allowed'
-                    : 'cursor-pointer hover:border-blue-300'
-                } ${
+                onClick={() => setSelectedFramework(framework.id)}
+                className={`p-5 bg-white rounded-lg border-2 transition-all cursor-pointer hover:border-blue-300 hover:shadow-md ${
                   selectedFramework === framework.id
                     ? 'border-blue-600 ring-2 ring-blue-100'
                     : 'border-gray-200'
                 }`}
               >
                 <div className="flex justify-between items-start">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <h3 className="text-lg font-semibold text-gray-900">
-                        {framework.name}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-xl">{getCategoryIcon(framework.category)}</span>
+                      <h3 className="text-lg font-semibold text-gray-900 truncate">
+                        {framework.shortName}
                       </h3>
-                      {framework.popular && (
-                        <span className="px-2 py-1 text-xs font-medium bg-green-100 text-green-700 rounded">
-                          Popular
-                        </span>
-                      )}
-                      {framework.comingSoon && (
-                        <span className="px-2 py-1 text-xs font-medium bg-gray-100 text-gray-600 rounded">
-                          Coming Soon
+                    </div>
+                    <p className="text-sm text-gray-500 mb-2 truncate">{framework.name}</p>
+                    <p className="text-sm text-gray-600 line-clamp-2">{framework.description}</p>
+                    <div className="flex items-center gap-2 mt-3 flex-wrap">
+                      <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
+                        {framework.controlCount} controls
+                      </span>
+                      {framework.regions && framework.regions.length > 0 && (
+                        <span className="text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded">
+                          {framework.regions.join(', ')}
                         </span>
                       )}
                     </div>
-                    <p className="text-gray-600 mt-1">{framework.description}</p>
-                    <p className="text-sm text-gray-500 mt-2">
-                      {framework.controls} controls to assess
-                    </p>
                   </div>
                   <div
-                    className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${
+                    className={`w-6 h-6 rounded-full border-2 flex items-center justify-center flex-shrink-0 ml-3 ${
                       selectedFramework === framework.id
                         ? 'border-blue-600 bg-blue-600'
                         : 'border-gray-300'
@@ -154,6 +186,12 @@ export default function NewAssessmentPage() {
               </div>
             ))}
           </div>
+
+          {filteredFrameworks.length === 0 && (
+            <div className="text-center py-12 text-gray-500">
+              No frameworks found matching your search.
+            </div>
+          )}
 
           <button
             onClick={handleStart}

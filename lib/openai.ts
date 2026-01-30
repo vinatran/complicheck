@@ -11,13 +11,14 @@ export async function analyzeDocument(
     name: string
     description: string
     requiredEvidence: string[]
-  }
+  },
+  frameworkName: string = 'ISO 27001'
 ): Promise<{
   status: 'met' | 'partial' | 'not_met'
   confidence: number
   evidence_summary: string
 }> {
-  const prompt = `You are an ISO 27001 auditor. Analyze this document for control ${control.id}: "${control.name}".
+  const prompt = `You are a ${frameworkName} compliance auditor. Analyze this document for control ${control.id}: "${control.name}".
 
 Requirement: ${control.description}
 Evidence needed: ${control.requiredEvidence.join(', ')}

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { getFromAzure } from '@/lib/azure-storage'
 import { analyzeDocument } from '@/lib/openai'
-import { getAllControls } from '@/lib/iso27001-controls'
+import { getControlsForFramework, getFramework } from '@/lib/frameworks'
 import { extractText } from '@/lib/document-parser'
 
 const supabase = createClient(
@@ -59,8 +59,26 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Get all ISO 27001 controls
-    const controls = getAllControls()
+    // Get assessment's framework
+    const { data: assessment, error: assessError } = await supabase
+      .from('assessments')
+      .select('framework')
+      .eq('id', assessmentId)
+      .single()
+
+    if (assessError || !assessment) {
+      return NextResponse.json(
+        { error: 'Assessment not found' },
+        { status: 404 }
+      )
+    }
+
+    const frameworkId = assessment.framework || 'iso27001'
+    const framework = getFramework(frameworkId)
+    const frameworkName = framework?.name || 'ISO 27001'
+
+    // Get controls for the selected framework
+    const controls = getControlsForFramework(frameworkId)
     const results: any[] = []
 
     // Analyze each control
@@ -71,7 +89,7 @@ export async function POST(request: NextRequest) {
           name: control.name,
           description: control.description,
           requiredEvidence: control.requiredEvidence,
-        })
+        }, frameworkName)
 
         results.push({
           assessment_id: assessmentId,
