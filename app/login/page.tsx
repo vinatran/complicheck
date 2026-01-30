@@ -80,8 +80,11 @@ export default function LoginPage() {
             {loading ? 'Signing in...' : 'Sign in'}
           </button>
 
-          <div className="text-center">
-            <a href="/signup" className="text-blue-600 hover:text-blue-500">
+          <div className="text-center space-y-2">
+            <a href="/forgot-password" className="block text-gray-600 hover:text-gray-800 text-sm">
+              Forgot your password?
+            </a>
+            <a href="/signup" className="block text-blue-600 hover:text-blue-500">
               Don't have an account? Sign up
             </a>
           </div>
